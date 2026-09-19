@@ -10,6 +10,7 @@ export default function AdminProductsPage() {
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [filtered, setFiltered] = useState<ApiProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -25,12 +26,17 @@ export default function AdminProductsPage() {
 
   const loadProducts = async () => {
     setIsLoading(true);
+    setError(null);
     try {
-      const { products: data } = await adminApi.getProducts() as { products: ApiProduct[] };
+      const { products: data } = (await adminApi.getProducts()) as { products: ApiProduct[] };
       setProducts(data);
       setFiltered(data);
-    } catch (err) { console.error(err); }
-    finally { setIsLoading(false); }
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load products. Please check backend connection and retry.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDelete = async (product: ApiProduct) => {
@@ -70,6 +76,18 @@ export default function AdminProductsPage() {
           <Plus className="w-4 h-4" /> Add Product
         </Link>
       </div>
+
+      {error && (
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-center justify-between gap-4">
+          <p className="text-sm font-medium">{error}</p>
+          <button
+            onClick={loadProducts}
+            className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg shrink-0 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative">

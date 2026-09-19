@@ -204,6 +204,7 @@ function CollectionsContent() {
       return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
     });
   }, [
+    products,
     collectionParam,
     subParam,
     sizeParam,

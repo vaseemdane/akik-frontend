@@ -3,11 +3,17 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { Sparkles, ArrowUpRight } from "lucide-react";
 import { WhatsAppIcon, InstagramIcon } from "@/components/ui/Icons";
 import { CONTACT_INFO } from "@/data/contactInfo";
 
 export const Footer: React.FC = () => {
+  const pathname = usePathname();
+  if (pathname?.startsWith("/admin")) {
+    return null;
+  }
+
   return (
     <footer className="bg-[#1A1918] text-[#FAF9F6] font-sans border-t border-[#33312E] py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">

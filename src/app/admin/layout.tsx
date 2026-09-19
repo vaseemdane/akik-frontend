@@ -15,6 +15,7 @@ import {
   X,
   Sparkles,
 } from "lucide-react";
+import { adminApi } from "@/lib/api";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -31,25 +32,43 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [adminName, setAdminName] = useState("Admin");
 
   useEffect(() => {
-    // Auth guard — redirect to login if no token
+    // Auth guard
     if (pathname === "/admin/login") return;
-    const token = localStorage.getItem("akik_admin_token");
-    if (!token) {
+    
+    // Check session data and token
+    const adminData = sessionStorage.getItem("akik_admin_info");
+    const adminToken = sessionStorage.getItem("akik_admin_token");
+    if (!adminData && !adminToken) {
       router.push("/admin/login");
       return;
     }
-    const adminData = localStorage.getItem("akik_admin_info");
+    
     if (adminData) {
       try {
         const parsed = JSON.parse(adminData);
         setAdminName(parsed.name || "Admin");
       } catch { /* ignore */ }
     }
+
+    // Server-side token validation
+    adminApi
+      .request<{ admin?: { name?: string } }>("/api/admin/me")
+      .then((res) => {
+        if (res.admin?.name) {
+          setAdminName(res.admin.name);
+        }
+      })
+      .catch((err) => {
+        console.warn("Session check warning:", err);
+      });
   }, [pathname, router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("akik_admin_token");
-    localStorage.removeItem("akik_admin_info");
+  const handleLogout = async () => {
+    try {
+      await adminApi.logout();
+    } catch {
+      // ignore
+    }
     router.push("/admin/login");
   };
 

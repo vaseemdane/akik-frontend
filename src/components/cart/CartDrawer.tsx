@@ -58,11 +58,11 @@ export const CartDrawer: React.FC = () => {
     };
   }, [isCartOpen, closeCart]);
 
-  const handleApplyPromo = (e: React.FormEvent) => {
+  const handleApplyPromo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!promoInput.trim()) return;
 
-    const res = applyPromoCode(promoInput);
+    const res = await applyPromoCode(promoInput);
     if (res.success) {
       setPromoMessage({ text: res.message, isError: false });
       setPromoInput("");

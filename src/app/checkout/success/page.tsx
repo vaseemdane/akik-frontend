@@ -1,16 +1,31 @@
 "use client";
 
-import React, { Suspense } from "react";
+import React, { Suspense, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { CheckCircle, ShoppingBag, MessageCircle } from "lucide-react";
 import { InstagramIcon } from "@/components/ui/Icons";
 import { CONTACT_INFO } from "@/data/contactInfo";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
-  const orderNumber = searchParams.get("order") || "AKIK-2026-0001";
+  const router = useRouter();
+  const orderNumber = searchParams.get("order");
+
+  useEffect(() => {
+    if (!orderNumber) {
+      router.replace("/collections");
+    }
+  }, [orderNumber, router]);
+
+  if (!orderNumber) {
+    return (
+      <main className="min-h-screen bg-[#FAF9F6] font-sans flex items-center justify-center p-4">
+        <div className="w-8 h-8 border-2 border-[#C47D5A] border-t-transparent rounded-full animate-spin" />
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#FAF9F6] font-sans flex items-center justify-center p-4">

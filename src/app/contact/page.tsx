@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { WhatsAppIcon, InstagramIcon } from "@/components/ui/Icons";
 import { CONTACT_INFO } from "@/data/contactInfo";
+import { api } from "@/lib/api";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -23,15 +24,36 @@ export default function ContactPage() {
     topic: "Product Enquiry",
     message: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const text = `Hello AKIK by Hafsa Khatri,\n\n*Name:* ${formData.name}\n*Contact:* ${formData.phone}\n*Inquiry Topic:* ${formData.topic}\n*Message:* ${formData.message}`;
-    window.open(
-      `https://wa.me/${CONTACT_INFO.phoneRaw}?text=${encodeURIComponent(text)}`,
-      "_blank",
-      "noopener,noreferrer"
-    );
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      await api.submitEnquiry({
+        name: formData.name,
+        phone: formData.phone,
+        topic: formData.topic,
+        message: formData.message,
+      });
+      setSubmitted(true);
+      const text = `Hello AKIK by Hafsa Khatri,\n\n*Name:* ${formData.name}\n*Contact:* ${formData.phone}\n*Inquiry Topic:* ${formData.topic}\n*Message:* ${formData.message}`;
+      setFormData({ name: "", phone: "", topic: "Product Enquiry", message: "" });
+      window.open(
+        `https://wa.me/${CONTACT_INFO.phoneRaw}?text=${encodeURIComponent(text)}`,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    } catch (err: unknown) {
+      console.warn("Backend enquiry submission fallback:", err);
+      const errorMsg = err instanceof Error ? err.message : "Failed to record enquiry. Please message us on WhatsApp directly.";
+      setSubmitError(errorMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -172,6 +194,23 @@ export default function ContactPage() {
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4 text-xs font-sans">
+              {submitted && (
+                <div className="p-4 rounded-xl bg-green-50 border border-green-200 text-green-800 text-xs sm:text-sm flex items-start gap-3">
+                  <Sparkles className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">Enquiry Sent Successfully!</p>
+                    <p className="text-green-700 mt-0.5 text-xs">
+                      Thank you! Hafsa Khatri & the AKIK team will connect with you on WhatsApp shortly.
+                    </p>
+                  </div>
+                </div>
+              )}
+              {submitError && (
+                <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                  <span className="font-semibold">Notice:</span> {submitError}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-semibold text-[#1F1E1D] mb-1.5">

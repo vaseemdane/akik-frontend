@@ -38,10 +38,12 @@ export default function ProductDetailPage() {
   }, [slug]);
 
   const [product, setProduct] = useState<Product | null>(fallbackProduct);
+  const [isLoading, setIsLoading] = useState(!fallbackProduct);
 
   useEffect(() => {
     let isMounted = true;
     if (!slug) return;
+    setIsLoading(!fallbackProduct);
     api
       .getProduct(slug)
       .then((data) => {
@@ -54,11 +56,14 @@ export default function ProductDetailPage() {
       })
       .catch((err) => {
         console.warn("API product detail error, using fallback:", err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
       });
     return () => {
       isMounted = false;
     };
-  }, [slug]);
+  }, [slug, fallbackProduct]);
 
   // Active Color Variant State
   const [selectedColor, setSelectedColor] = useState<ColorVariant>(() => {
@@ -146,12 +151,24 @@ export default function ProductDetailPage() {
     }, 2500);
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4">
+        <div className="w-8 h-8 border-2 border-[#C47D5A] border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-xs uppercase tracking-widest text-[#75706B]">Curating Ensemble...</p>
+      </div>
+    );
+  }
+
   if (!product) {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4">
-        <h1 className="text-3xl font-serif text-[#1F1E1D] mb-3">No Products Available</h1>
-        <p className="text-sm text-[#75706B] max-w-md mb-8">
-          The product collection has been cleared and will be updated shortly.
+        <span className="text-xs uppercase tracking-[0.25em] font-bold text-[#C47D5A] mb-2">
+          404 — Piece Unavailable
+        </span>
+        <h1 className="text-3xl font-serif text-[#1F1E1D] mb-3">Product Not Found</h1>
+        <p className="text-sm text-[#75706B] max-w-md mb-8 leading-relaxed">
+          This piece is not available or may have been archived. Explore our current collections to discover similar designs.
         </p>
         <Link
           href="/collections"

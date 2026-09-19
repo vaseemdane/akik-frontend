@@ -29,6 +29,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
@@ -38,12 +39,17 @@ export default function AdminOrdersPage() {
 
   const loadOrders = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const params = statusFilter !== "all" ? `status=${statusFilter}` : "";
-      const { orders: data } = await adminApi.getOrders(params) as { orders: Order[] };
+      const { orders: data } = (await adminApi.getOrders(params)) as { orders: Order[] };
       setOrders(data);
-    } catch (err) { console.error(err); }
-    finally { setIsLoading(false); }
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load orders. Please check backend connection and retry.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
@@ -71,6 +77,18 @@ export default function AdminOrdersPage() {
           </select>
         </div>
       </div>
+
+      {error && (
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-center justify-between gap-4">
+          <p className="text-sm font-medium">{error}</p>
+          <button
+            onClick={loadOrders}
+            className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg shrink-0 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center h-40"><Loader2 className="w-6 h-6 text-[#C47D5A] animate-spin" /></div>

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { CartItem, OrderSummary, PromoCode } from "@/types/cart";
 import { Product, ApparelSize, ColorVariant } from "@/types/product";
+import { api } from "@/lib/api";
 
 interface ToastItem {
   id: string;
@@ -28,7 +29,7 @@ interface CartContextType {
   updateQuantity: (itemId: string, delta: number) => void;
   clearCart: () => void;
   appliedPromo: PromoCode | null;
-  applyPromoCode: (codeStr: string) => { success: boolean; message: string };
+  applyPromoCode: (codeStr: string) => Promise<{ success: boolean; message: string }>;
   removePromoCode: () => void;
   orderSummary: OrderSummary;
   totalItemCount: number;
@@ -54,21 +55,6 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 const FREE_SHIPPING_THRESHOLD = 3000;
 const STANDARD_SHIPPING_FEE = 150;
 
-const VALID_PROMOS: PromoCode[] = [
-  {
-    code: "FESTIVE15",
-    discountPercentage: 15,
-    description: "15% off festive celebration discount",
-    minOrderValue: 2500,
-  },
-  {
-    code: "AKIKWELCOME",
-    discountPercentage: 10,
-    description: "10% off your first boutique purchase",
-    minOrderValue: 1500,
-  },
-];
-
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -77,6 +63,41 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [appliedPromo, setAppliedPromo] = useState<PromoCode | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Rehydrate cart and wishlist from localStorage on client mount
+  useEffect(() => {
+    try {
+      const savedCart = localStorage.getItem("akik_cart");
+      if (savedCart) setCart(JSON.parse(savedCart));
+      const savedWishlist = localStorage.getItem("akik_wishlist");
+      if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
+    } catch (err) {
+      console.warn("Storage hydration failed:", err);
+    } finally {
+      setIsHydrated(true);
+    }
+  }, []);
+
+  // Persist cart updates to localStorage
+  useEffect(() => {
+    if (!isHydrated) return;
+    try {
+      localStorage.setItem("akik_cart", JSON.stringify(cart));
+    } catch (err) {
+      console.warn("Cart storage write failed:", err);
+    }
+  }, [cart, isHydrated]);
+
+  // Persist wishlist updates to localStorage
+  useEffect(() => {
+    if (!isHydrated) return;
+    try {
+      localStorage.setItem("akik_wishlist", JSON.stringify(wishlist));
+    } catch (err) {
+      console.warn("Wishlist storage write failed:", err);
+    }
+  }, [wishlist, isHydrated]);
 
   const openCart = () => setIsCartOpen(true);
   const closeCart = () => setIsCartOpen(false);
@@ -182,11 +203,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const clearCart = () => setCart([]);
 
-  const applyPromoCode = (codeStr: string) => {
+  const applyPromoCode = async (
+    codeStr: string
+  ): Promise<{ success: boolean; message: string }> => {
     const normalized = codeStr.trim().toUpperCase();
-    const found = VALID_PROMOS.find((p) => p.code === normalized);
-    if (!found) {
-      return { success: false, message: "Invalid promo code. Try FESTIVE15" };
+    if (!normalized) {
+      return { success: false, message: "Please enter a promo code" };
     }
 
     const currentSubtotal = cart.reduce(
@@ -194,15 +216,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
       0
     );
 
-    if (found.minOrderValue && currentSubtotal < found.minOrderValue) {
-      return {
-        success: false,
-        message: `Min order of ₹${found.minOrderValue.toLocaleString()} required for this code`,
-      };
+    try {
+      const res = await api.validatePromo(normalized, currentSubtotal);
+      if (res.valid && res.promo) {
+        setAppliedPromo({
+          code: res.promo.code,
+          discountPercentage: res.promo.discountPercentage,
+          description: res.promo.description,
+          minOrderValue: 0,
+        });
+        return { success: true, message: res.message || `Promo applied: ${res.promo.description}` };
+      }
+      return { success: false, message: res.message || "Invalid promo code" };
+    } catch {
+      return { success: false, message: "Failed to validate promo code" };
     }
-
-    setAppliedPromo(found);
-    return { success: true, message: `Promo applied: ${found.description}` };
   };
 
   const removePromoCode = () => {

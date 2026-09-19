@@ -3,8 +3,15 @@
  * All frontend components should use these functions instead of direct fetches.
  */
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+if (typeof window !== "undefined" && !RAW_API_URL && process.env.NODE_ENV === "production") {
+  console.error(
+    "⚠️ Configuration Warning: NEXT_PUBLIC_API_URL is missing in production environment. API requests may fail."
+  );
+}
+
+const BASE_URL = RAW_API_URL ? RAW_API_URL.replace(/\/$/, "") : "http://localhost:5000";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -177,13 +184,16 @@ export const api = {
     couponDiscount?: number;
     shippingFee?: number;
     promoCode?: string;
-  }): Promise<{ razorpayOrderId: string; amount: number; currency: string; keyId: string }> {
+  }): Promise<{ razorpayOrderId: string; amount: number; currency: string; keyId?: string; calculated?: { subtotal: number; couponDiscount: number; shippingFee: number; finalTotal: number } }> {
     const res = await fetch(`${BASE_URL}/api/checkout/create-order`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error("Failed to create checkout order");
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Failed to create checkout order" }));
+      throw new Error(err.error || "Failed to create checkout order");
+    }
     return res.json();
   },
 
@@ -198,13 +208,16 @@ export const api = {
     couponDiscount?: number;
     shippingFee?: number;
     promoCode?: string;
-  }): Promise<{ success: boolean; orderNumber: string; adminWhatsAppUrl: string }> {
+  }): Promise<{ success: boolean; orderNumber: string; adminWhatsAppUrl?: string }> {
     const res = await fetch(`${BASE_URL}/api/checkout/verify-payment`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error("Payment verification failed");
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Payment verification failed" }));
+      throw new Error(err.error || "Payment verification failed");
+    }
     return res.json();
   },
 };
@@ -218,16 +231,33 @@ export const adminApi = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
+      credentials: "include",
     });
     if (!res.ok) throw new Error("Invalid credentials");
     return res.json();
   },
 
-  /** Generic authenticated request helper */
+  /** Logout admin */
+  async logout(): Promise<void> {
+    await fetch(`${BASE_URL}/api/admin/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("akik_admin_info");
+      sessionStorage.removeItem("akik_admin_token");
+    }
+  },
+
+  /** Generic authenticated request helper (MED-03) */
   async request<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const token = typeof window !== "undefined" ? localStorage.getItem("akik_admin_token") : null;
+    const token =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("akik_admin_token")
+        : null;
     const res = await fetch(`${BASE_URL}${path}`, {
       ...options,
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -236,7 +266,8 @@ export const adminApi = {
     });
     if (res.status === 401) {
       if (typeof window !== "undefined") {
-        localStorage.removeItem("akik_admin_token");
+        sessionStorage.removeItem("akik_admin_token");
+        sessionStorage.removeItem("akik_admin_info");
         window.location.href = "/admin/login";
       }
       throw new Error("Unauthorized");
@@ -250,16 +281,21 @@ export const adminApi = {
 
   getStats: () => adminApi.request<{ totalProducts: number; totalOrders: number; newOrders: number; totalRevenue: number; unreadEnquiries: number }>("/api/admin/orders/stats/overview"),
   getProducts: () => adminApi.request<{ products: ApiProduct[] }>("/api/admin/products"),
+  getProduct: (id: string) => adminApi.request<{ product: ApiProduct }>(`/api/admin/products/${id}`),
   createProduct: (data: object) => adminApi.request("/api/admin/products", { method: "POST", body: JSON.stringify(data) }),
   updateProduct: (id: string, data: object) => adminApi.request(`/api/admin/products/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteProduct: (id: string) => adminApi.request(`/api/admin/products/${id}`, { method: "DELETE" }),
 
   uploadImages: async (productId: string, files: File[]) => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("akik_admin_token") : null;
+    const token =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("akik_admin_token")
+        : null;
     const formData = new FormData();
     files.forEach((f) => formData.append("images", f));
     const res = await fetch(`${BASE_URL}/api/admin/products/${productId}/images`, {
       method: "POST",
+      credentials: "include",
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
     });

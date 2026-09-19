@@ -15,12 +15,23 @@ interface Stats {
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadStats = () => {
+    setIsLoading(true);
+    setError(null);
+    adminApi
+      .getStats()
+      .then(setStats)
+      .catch((err) => {
+        console.error("Dashboard stats error:", err);
+        setError("Could not load dashboard stats. Is the backend server online?");
+      })
+      .finally(() => setIsLoading(false));
+  };
 
   useEffect(() => {
-    adminApi.getStats()
-      .then(setStats)
-      .catch(console.error)
-      .finally(() => setIsLoading(false));
+    loadStats();
   }, []);
 
   const statCards = stats
@@ -39,6 +50,18 @@ export default function AdminDashboardPage() {
         <h1 className="text-2xl font-bold text-[#1A1918]">Dashboard</h1>
         <p className="text-sm text-[#75706B] mt-1">AKIK by Hafsa Khatri — Store Overview</p>
       </div>
+
+      {error && (
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-center justify-between gap-4">
+          <p className="text-sm font-medium">{error}</p>
+          <button
+            onClick={loadStats}
+            className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg shrink-0 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center h-40">

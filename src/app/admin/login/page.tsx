@@ -20,8 +20,10 @@ export default function AdminLoginPage() {
     setIsLoading(true);
     try {
       const { token, admin } = await adminApi.login(email, password);
-      localStorage.setItem("akik_admin_token", token);
-      localStorage.setItem("akik_admin_info", JSON.stringify(admin));
+      if (token) {
+        sessionStorage.setItem("akik_admin_token", token);
+      }
+      sessionStorage.setItem("akik_admin_info", JSON.stringify(admin));
       router.push("/admin");
     } catch {
       setError("Invalid email or password. Please try again.");
